@@ -57,8 +57,9 @@ window._fb = {
   }
 };
 
-// Signal ready
-window.dispatchEvent(new Event('fb-ready'));
+// Signal ready — use flag+callback so timing between module and regular script doesn't matter
+window._fbReady = true;
+if (window._fbReadyCb) window._fbReadyCb();
 </script>
 <style>
 :root{--bg:#0a0e14;--surface:#111720;--surface2:#161d28;--border:#1e2d3d;--accent:#f59e0b;--accent2:#10b981;--accent3:#3b82f6;--danger:#ef4444;--muted:#4a5568;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--green:#10b981;--blue:#3b82f6;--red:#ef4444;--purple:#8b5cf6;}
@@ -269,6 +270,33 @@ tbody td{padding:10px 13px;color:var(--text2);vertical-align:middle;white-space:
 .toast.success{border-color:rgba(16,185,129,.4);color:var(--green);}
 .toast.error{border-color:rgba(239,68,68,.4);color:var(--danger);}
 
+/* ANALYTICS DATE FILTER */
+.an-filter-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;flex-wrap:wrap;animation:fadeUp .3s ease both;}
+.an-filter-group{display:flex;align-items:center;gap:8px;}
+.an-filter-label{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+.an-date-inp{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 11px;color:var(--text);font-size:12px;font-family:'DM Mono',monospace;outline:none;transition:border-color .2s;cursor:pointer;}
+.an-date-inp:focus{border-color:var(--accent);}
+.an-clear-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text3);font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.an-clear-btn:hover{border-color:var(--accent);color:var(--accent);}
+.an-filter-info{font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;margin-left:auto;}
+
+/* ANALYTICS STAGE SUMMARY STRIP */
+.an-stage-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;animation:fadeUp .35s ease both;}
+.an-stage-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 16px;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;}
+.an-stage-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sc,var(--accent));}
+.an-stage-num{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text);line-height:1;}
+.an-stage-info{display:flex;flex-direction:column;gap:2px;}
+.an-stage-name{font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);}
+.an-stage-val{font-size:12px;font-family:'DM Mono',monospace;color:var(--accent);}
+
+/* ANALYTICS CAPACITY STRIP */
+.an-cap-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;animation:fadeUp .4s ease both;}
+.an-cap-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 16px;position:relative;overflow:hidden;}
+.an-cap-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--cc,var(--accent));}
+.an-cap-label{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;}
+.an-cap-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--text);line-height:1;}
+.an-cap-unit{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;}
+
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;animation:fadeUp .4s ease both;}
 .cc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
@@ -310,12 +338,12 @@ tbody td{padding:10px 13px;color:var(--text2);vertical-align:middle;white-space:
 <!-- LOGIN SCREEN -->
 <div id="loginScreen">
   <div class="login-box">
-    <div class="login-logo">
-      <div class="login-logo-icon">&#9728;</div>
-      <div class="login-logo-text">
-        <h2>SEC Solar Energy</h2>
-        <span>CRM Dashboard</span>
-      </div>
+    <div class="login-logo" style="justify-content:center;margin-bottom:20px;">
+      <img src="images/solar-logo-png.png" alt="SEC Solar Energy" style="height:80px;width:auto;" onerror="this.style.display='none'">
+    </div>
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text);">SEC Solar Energy</div>
+      <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;">CRM Dashboard</div>
     </div>
     <div class="login-title">Welcome back</div>
     <div class="login-sub">Sign in to access the CRM</div>
@@ -368,6 +396,7 @@ tbody td{padding:10px 13px;color:var(--text2);vertical-align:middle;white-space:
   <!-- DASHBOARD -->
   <div class="page active" id="page-dashboard">
     <div class="kpi-strip" id="kpiStrip"></div>
+    <div class="kpi-strip" id="capStrip" style="grid-template-columns:repeat(3,1fr);margin-top:-10px;"></div>
     <div class="ctrl-row">
       <span class="flabel">STAGE</span>
       <button class="fbtn active" data-stage="all" onclick="setStage('all',this)">All</button>
@@ -451,8 +480,26 @@ tbody td{padding:10px 13px;color:var(--text2);vertical-align:middle;white-space:
 
   <!-- ANALYTICS -->
   <div class="page" id="page-charts">
+    <!-- DATE FILTER BAR -->
+    <div class="an-filter-bar">
+      <div class="an-filter-group">
+        <label class="an-filter-label">From</label>
+        <input type="date" id="chartDateFrom" class="an-date-inp" onchange="renderCharts()">
+      </div>
+      <div class="an-filter-group">
+        <label class="an-filter-label">To</label>
+        <input type="date" id="chartDateTo" class="an-date-inp" onchange="renderCharts()">
+      </div>
+      <button class="an-clear-btn" onclick="clearChartDates()">Clear Filter</button>
+      <div class="an-filter-info" id="chartFilterInfo"></div>
+    </div>
+    <!-- STAGE SUMMARY STRIP -->
+    <div class="an-stage-strip" id="anStageStrip"></div>
+    <!-- SYSTEM CAPACITY STRIP -->
+    <div class="an-cap-strip" id="anCapStrip"></div>
+    <!-- CHARTS -->
     <div class="charts-grid">
-      <div class="cc"><div class="cc-title">Pipeline by Stage</div><div class="cc-sub">Number of clients per stage</div><div class="ch-wrap"><canvas id="chStage"></canvas></div></div>
+      <div class="cc"><div class="cc-title">Pipeline by Stage</div><div class="cc-sub" id="chStageSub">Number of clients per stage</div><div class="ch-wrap"><canvas id="chStage"></canvas></div></div>
       <div class="cc"><div class="cc-title">Revenue by Lead Source</div><div class="cc-sub">Total deal value by acquisition channel</div><div class="ch-wrap"><canvas id="chSource"></canvas></div></div>
       <div class="cc"><div class="cc-title">Deals by System Type</div><div class="cc-sub">Distribution with percentage breakdown</div><div class="ch-wrap"><canvas id="chSystem"></canvas></div></div>
       <div class="cc"><div class="cc-title">Win Rate</div><div class="cc-sub">Won vs Lost vs Active with percentages</div><div class="ch-wrap"><canvas id="chWin"></canvas></div></div>
@@ -474,7 +521,7 @@ tbody td{padding:10px 13px;color:var(--text2);vertical-align:middle;white-space:
 </div>
 
 <!-- ADD/EDIT MODAL -->
-<div class="mod-ov" id="modOv" onclick="handleModClick(event)">
+<div class="mod-ov" id="modOv">
   <div class="mod-box">
     <div class="mod-hdr">
       <div class="mod-title" id="modTitle">Add New Client</div>
@@ -628,6 +675,25 @@ function renderKPIs() {
     <div class="kpi-card" style="--kpi-color:${k.c};animation-delay:${i*.07}s">
       <div class="kpi-label">${k.l}</div>
       <div class="kpi-value">${k.v}</div>
+      <div class="kpi-sub">${k.s}</div>
+    </div>`).join('');
+
+  // Capacity KPIs — exclude Maintenance
+  const proj = DATA.filter(r => r.system_type !== 'Maintenance');
+  const totalDC  = proj.reduce((a,r) => a+(r.pv_capacity||0), 0);
+  const totalAC  = proj.reduce((a,r) => a+(r.inverter_capacity||0), 0);
+  const totalBat = proj.filter(r => r.battery_capacity && r.battery_capacity !== 'N/A')
+                       .reduce((a,r) => a+(parseFloat(r.battery_capacity)||0), 0);
+  const caps = [
+    {l:'Total DC Capacity', v:Number(totalDC).toLocaleString('en-US',{maximumFractionDigits:1})+' kWp', s:'Excl. Maintenance', c:'#f59e0b'},
+    {l:'Total AC Capacity', v:Number(totalAC).toLocaleString('en-US',{maximumFractionDigits:1})+' kW',  s:'Excl. Maintenance', c:'#3b82f6'},
+    {l:'Total Battery',     v:totalBat>0?Number(totalBat).toLocaleString('en-US',{maximumFractionDigits:1})+' kWh':'— kWh', s:'Excl. Maintenance', c:'#10b981'},
+  ];
+  const cs = document.getElementById('capStrip');
+  if (cs) cs.innerHTML = caps.map((k,i) => `
+    <div class="kpi-card" style="--kpi-color:${k.c};animation-delay:${(i+5)*.07}s">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-value" style="font-size:18px">${k.v}</div>
       <div class="kpi-sub">${k.s}</div>
     </div>`).join('');
 }
@@ -794,10 +860,6 @@ function openAddModal() {
   editId = null;
   document.getElementById('modTitle').textContent = 'Add New Client';
   clearForm();
-  document.getElementById('f_name').value = 'Mishael Zunco';
-  document.getElementById('f_company').value = 'SEC Solar Energy';
-  document.getElementById('f_position').value = 'Technical Sales';
-  document.getElementById('f_phone').value = '+855 87 850 812';
   document.getElementById('f_pipeline_created').value = new Date().toISOString().split('T')[0];
   document.getElementById('modOv').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -831,7 +893,6 @@ function openEdit(id) {
 }
 
 function closeMod() { document.getElementById('modOv').classList.remove('open'); document.body.style.overflow = ''; editId = null; }
-function handleModClick(e) { if (e.target === document.getElementById('modOv')) closeMod(); }
 
 function clearForm() {
   ['f_name','f_company','f_position','f_phone','f_email','f_sale_price','f_pipeline_created','f_last_contact','f_date_closed','f_pv','f_inv','f_bat','f_notes','f_last_notes'].forEach(id => document.getElementById(id).value = '');
@@ -940,32 +1001,115 @@ const CD = {
 };
 function dch(id) { if (charts_[id]) { charts_[id].destroy(); delete charts_[id]; } }
 
+function clearChartDates() {
+  document.getElementById('chartDateFrom').value = '';
+  document.getElementById('chartDateTo').value = '';
+  renderCharts();
+}
+
+function getChartData() {
+  const from = document.getElementById('chartDateFrom').value;
+  const to   = document.getElementById('chartDateTo').value;
+  if (!from && !to) return { data: DATA, label: null };
+  const f = from ? new Date(from) : null;
+  const t = to   ? new Date(to)   : null;
+  if (t) t.setHours(23,59,59,999);
+  const data = DATA.filter(r => {
+    if (!r.pipeline_created) return false;
+    const d = new Date(r.pipeline_created);
+    if (f && d < f) return false;
+    if (t && d > t) return false;
+    return true;
+  });
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fmtD = s => { const d=new Date(s); return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear(); };
+  const label = (from && to) ? fmtD(from)+' — '+fmtD(to) : from ? 'From '+fmtD(from) : 'To '+fmtD(to);
+  return { data, label };
+}
+
 function renderCharts() {
+  const { data: D, label } = getChartData();
+
+  // Update filter info text
+  const info = document.getElementById('chartFilterInfo');
+  if (info) info.textContent = label ? 'Filtered: '+label+' ('+D.length+' records)' : D.length+' total records';
+
+  // ── Stage summary strip ──
+  const stageColors = {Lead:'#3b82f6',Opportunity:'#8b5cf6',Customer:'#10b981',Lost:'#ef4444'};
+  const stageStrip = document.getElementById('anStageStrip');
+  if (stageStrip) {
+    const stages = ['Lead','Opportunity','Customer','Lost'];
+    stageStrip.innerHTML = stages.map(s => {
+      const items = D.filter(r => r.lead_stage === s);
+      const val = items.reduce((a,r) => a+(r.sale_price||0), 0);
+      return `<div class="an-stage-card" style="--sc:${stageColors[s]}">
+        <div class="an-stage-num">${items.length}</div>
+        <div class="an-stage-info">
+          <div class="an-stage-name">${s}</div>
+          <div class="an-stage-val">${val>0?'$'+Number(val).toLocaleString('en-US',{maximumFractionDigits:0}):'—'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── System capacity strip (exclude Maintenance) ──
+  const capStrip = document.getElementById('anCapStrip');
+  if (capStrip) {
+    const proj = D.filter(r => r.system_type !== 'Maintenance');
+    const totalDC  = proj.reduce((a,r) => a+(r.pv_capacity||0), 0);
+    const totalAC  = proj.reduce((a,r) => a+(r.inverter_capacity||0), 0);
+    const totalBat = proj.filter(r => r.battery_capacity && r.battery_capacity !== 'N/A')
+                        .reduce((a,r) => a+(parseFloat(r.battery_capacity)||0), 0);
+    capStrip.innerHTML = `
+      <div class="an-cap-card" style="--cc:#f59e0b">
+        <div class="an-cap-label">Total DC Capacity</div>
+        <div class="an-cap-value">${Number(totalDC).toLocaleString('en-US',{maximumFractionDigits:1})}</div>
+        <div class="an-cap-unit">kWp — excl. Maintenance</div>
+      </div>
+      <div class="an-cap-card" style="--cc:#3b82f6">
+        <div class="an-cap-label">Total AC Capacity</div>
+        <div class="an-cap-value">${Number(totalAC).toLocaleString('en-US',{maximumFractionDigits:1})}</div>
+        <div class="an-cap-unit">kW — excl. Maintenance</div>
+      </div>
+      <div class="an-cap-card" style="--cc:#10b981">
+        <div class="an-cap-label">Total Battery Capacity</div>
+        <div class="an-cap-value">${totalBat>0?Number(totalBat).toLocaleString('en-US',{maximumFractionDigits:1}):'—'}</div>
+        <div class="an-cap-unit">kWh — excl. Maintenance</div>
+      </div>`;
+  }
+
+  // ── Pipeline by Stage bar ──
   dch('stage');
-  const sc = {Lead:0, Opportunity:0, Customer:0, Lost:0};
-  DATA.forEach(r => { if (sc[r.lead_stage] !== undefined) sc[r.lead_stage]++; });
+  const sc = {Lead:0,Opportunity:0,Customer:0,Lost:0};
+  D.forEach(r => { if (sc[r.lead_stage]!==undefined) sc[r.lead_stage]++; });
+  const stageSub = document.getElementById('chStageSub');
+  if (stageSub) stageSub.textContent = label ? 'Filtered: '+label : 'All time — number of clients per stage';
   charts_['stage'] = new Chart(document.getElementById('chStage'), {type:'bar', data:{labels:Object.keys(sc), datasets:[{label:'Clients', data:Object.values(sc), backgroundColor:['rgba(96,165,250,.75)','rgba(167,139,250,.75)','rgba(52,211,153,.75)','rgba(248,113,113,.75)'], borderRadius:7, borderSkipped:false}]}, options:{...CD, plugins:{...CD.plugins, legend:{display:false}}}});
 
+  // ── Revenue by Lead Source ──
   dch('src');
-  const sr = {}; DATA.forEach(r => { if (r.lead_source && r.sale_price) sr[r.lead_source] = (sr[r.lead_source]||0) + r.sale_price; });
+  const sr = {}; D.forEach(r => { if (r.lead_source && r.sale_price) sr[r.lead_source]=(sr[r.lead_source]||0)+r.sale_price; });
   const ss = Object.entries(sr).sort((a,b) => b[1]-a[1]);
   charts_['src'] = new Chart(document.getElementById('chSource'), {type:'bar', data:{labels:ss.map(e=>e[0]), datasets:[{label:'Revenue', data:ss.map(e=>Math.round(e[1])), backgroundColor:'rgba(245,158,11,.65)', borderRadius:7, borderSkipped:false}]}, options:{...CD, plugins:{...CD.plugins, legend:{display:false}}, scales:{...CD.scales, y:{...CD.scales.y, ticks:{...CD.scales.y.ticks, callback:v=>'$'+(v/1000).toFixed(0)+'K'}}}}});
 
+  // ── Deals by System Type ──
   dch('sys');
-  const syc = {}; DATA.forEach(r => { if (r.system_type) syc[r.system_type] = (syc[r.system_type]||0)+1; });
+  const syc = {}; D.forEach(r => { if (r.system_type) syc[r.system_type]=(syc[r.system_type]||0)+1; });
   const sycTotal = Object.values(syc).reduce((a,b) => a+b, 0);
   charts_['sys'] = new Chart(document.getElementById('chSystem'), {type:'doughnut', data:{labels:Object.keys(syc), datasets:[{data:Object.values(syc), backgroundColor:['rgba(245,158,11,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)','rgba(59,130,246,.8)','rgba(249,115,22,.8)'], borderColor:'#111720', borderWidth:2}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{family:"'DM Mono',monospace",size:11}}}, tooltip:{callbacks:{label:ctx=>{const pct=Math.round(ctx.parsed/sycTotal*100);return ctx.label+': '+ctx.parsed+' ('+pct+'%)';}}}}}});
 
+  // ── Win Rate ──
   dch('wr');
-  const won = DATA.filter(r => r.lead_stage === 'Customer').length;
-  const lst = DATA.filter(r => r.lead_stage === 'Lost').length;
-  const act = DATA.filter(r => r.lead_stage === 'Lead' || r.lead_stage === 'Opportunity').length;
-  const wrTotal = won + lst + act;
+  const won=D.filter(r=>r.lead_stage==='Customer').length;
+  const lst=D.filter(r=>r.lead_stage==='Lost').length;
+  const act=D.filter(r=>r.lead_stage==='Lead'||r.lead_stage==='Opportunity').length;
+  const wrTotal=won+lst+act;
   charts_['wr'] = new Chart(document.getElementById('chWin'), {type:'doughnut', data:{labels:['Won (Customer)','Lost','Active'], datasets:[{data:[won,lst,act], backgroundColor:['rgba(16,185,129,.8)','rgba(239,68,68,.8)','rgba(59,130,246,.5)'], borderColor:'#111720', borderWidth:2}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{family:"'DM Mono',monospace",size:11}}}, tooltip:{callbacks:{label:ctx=>{const pct=wrTotal>0?Math.round(ctx.parsed/wrTotal*100):0;return ctx.label+': '+ctx.parsed+' ('+pct+'%)';}}}}}});
 
+  // ── Top 10 Deals by Value ──
   dch('top');
-  const top = DATA.filter(r => r.sale_price).sort((a,b) => (b.sale_price||0)-(a.sale_price||0)).slice(0,10);
-  const scmap = {Customer:'rgba(52,211,153,.8)',Lead:'rgba(96,165,250,.8)',Opportunity:'rgba(167,139,250,.8)',Lost:'rgba(248,113,113,.8)'};
+  const top=D.filter(r=>r.sale_price).sort((a,b)=>(b.sale_price||0)-(a.sale_price||0)).slice(0,10);
+  const scmap={Customer:'rgba(52,211,153,.8)',Lead:'rgba(96,165,250,.8)',Opportunity:'rgba(167,139,250,.8)',Lost:'rgba(248,113,113,.8)'};
   charts_['top'] = new Chart(document.getElementById('chTop'), {type:'bar', data:{labels:top.map(r=>(r.name||'?').substring(0,15)), datasets:[{label:'Value (USD)', data:top.map(r=>Math.round(r.sale_price||0)), backgroundColor:top.map(r=>scmap[r.lead_stage]||'rgba(245,158,11,.7)'), borderRadius:7, borderSkipped:false}]}, options:{...CD, plugins:{...CD.plugins, legend:{display:false}, tooltip:{callbacks:{label:ctx=>{const r=top[ctx.dataIndex];return['$'+Number(r.sale_price).toLocaleString('en-US',{maximumFractionDigits:0}),r.company||''];}}}}, scales:{...CD.scales, y:{...CD.scales.y, ticks:{...CD.scales.y.ticks, callback:v=>'$'+(v>=1000000?(v/1000000).toFixed(1)+'M':(v/1000).toFixed(0)+'K')}}}}});
 }
 
@@ -1038,10 +1182,9 @@ function showApp() {
 }
 
 // ============================================================
-// FIREBASE INIT — Auth state drives everything
+// FIREBASE INIT — works regardless of module vs regular script timing
 // ============================================================
-window.addEventListener('fb-ready', () => {
-  // Watch auth state — fires on page load and on login/logout
+function initFirebase() {
   window._fb.onAuthChange(user => {
     if (user) {
       showApp();
@@ -1049,7 +1192,14 @@ window.addEventListener('fb-ready', () => {
       showLogin();
     }
   });
-});
+}
+
+// If Firebase module already loaded, run now. Otherwise wait for it.
+if (window._fbReady) {
+  initFirebase();
+} else {
+  window._fbReadyCb = initFirebase;
+}
 </script>
 </body>
 </html>
