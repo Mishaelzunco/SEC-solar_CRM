@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEC Solar Energy — CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCoKEeAVGnym7Ckn1NoMEpmvBh7kYCsm4s",
+  authDomain: "sec-crm-documents.firebaseapp.com",
+  projectId: "sec-crm-documents",
+  storageBucket: "sec-crm-documents.firebasestorage.app",
+  messagingSenderId: "779307378826",
+  appId: "1:779307378826:web:36b843a0cecb6b2617e573",
+  measurementId: "G-J46R6N8P1W"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const auth = getAuth(app);
+const CRM_COL = "clients";
+
+// ── Expose Auth + DB functions to global scope ──
+window._fb = {
+  async login(email, password) {
+    return await signInWithEmailAndPassword(auth, email, password);
+  },
+  async logout() {
+    return await signOut(auth);
+  },
+  onAuthChange(cb) {
+    onAuthStateChanged(auth, cb);
+  },
+  async add(data) {
+    data.createdAt = serverTimestamp();
+    const ref = await addDoc(collection(db, CRM_COL), data);
+    return ref.id;
+  },
+  async update(id, data) {
+    await updateDoc(doc(db, CRM_COL, id), data);
+  },
+  async remove(id) {
+    await deleteDoc(doc(db, CRM_COL, id));
+  },
+  listen(callback) {
+    return onSnapshot(collection(db, CRM_COL), snap => {
+      const data = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      callback(data);
+    });
+  }
+};
+
+// Signal ready
+window.dispatchEvent(new Event('fb-ready'));
+</script>
+<style>
+:root{--bg:#0a0e14;--surface:#111720;--surface2:#161d28;--border:#1e2d3d;--accent:#f59e0b;--accent2:#10b981;--accent3:#3b82f6;--danger:#ef4444;--muted:#4a5568;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--green:#10b981;--blue:#3b82f6;--red:#ef4444;--purple:#8b5cf6;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(245,158,11,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,158,11,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 26px;border-bottom:1px solid var(--border);background:rgba(10,14,20,.97);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{display:flex;align-items:center;justify-content:center;}
+.logo-icon img{height:56px;width:auto;}
+.logo-text h1{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.02em;}
+.logo-text span{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;width:210px;transition:border-color .2s;}
+.search-box:focus-within{border-color:var(--accent);}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;width:100%;}
+.search-box input::placeholder{color:var(--text3);}
+.badge-live{display:flex;align-items:center;gap:6px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);padding:5px 10px;border-radius:6px;font-size:11px;color:var(--green);font-family:'DM Mono',monospace;white-space:nowrap;}
+.badge-live::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+.badge-cloud{display:flex;align-items:center;gap:6px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);padding:5px 10px;border-radius:6px;font-size:11px;color:var(--blue);font-family:'DM Mono',monospace;white-space:nowrap;}
+.badge-cloud.loading{color:var(--text3);border-color:var(--border);}
+.badge-cloud.error{color:var(--danger);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.06);}
+#clockDisplay{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
+.add-btn{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#f97316);border:none;color:#0a0e14;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;box-shadow:0 0 20px rgba(245,158,11,.25);}
+.add-btn:hover{transform:translateY(-1px);box-shadow:0 4px 24px rgba(245,158,11,.4);}
+.add-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+main{padding:22px 26px;max-width:1700px;margin:0 auto;}
+
+/* NAV TABS */
+.nav-tabs{display:flex;gap:2px;margin-bottom:22px;border-bottom:1px solid var(--border);}
+.nav-tab{padding:10px 18px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase;letter-spacing:.06em;background:none;border-top:none;border-left:none;border-right:none;}
+.nav-tab:hover{color:var(--text2);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.page{display:none;}.page.active{display:block;}
+
+/* LOADING SCREEN */
+#loadingScreen{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+#loadingScreen p{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);}
+#loadingScreen.hidden{display:none;}
+
+/* LOGIN SCREEN */
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:8000;display:none;align-items:center;justify-content:center;}
+#loginScreen.show{display:flex;}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px 44px;width:420px;max-width:calc(100vw - 32px);box-shadow:0 24px 80px rgba(0,0,0,.5);}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
+.login-logo-icon{width:44px;height:44px;background:linear-gradient(135deg,#f59e0b,#f97316);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.login-logo-text h2{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+.login-logo-text span{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;}
+.login-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:28px;}
+.login-field{margin-bottom:16px;}
+.login-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;margin-bottom:7px;display:block;}
+.login-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.login-input:focus{border-color:var(--accent);}
+.login-input::placeholder{color:var(--text3);}
+.login-btn{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#f97316);color:#0a0e14;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;margin-top:6px;box-shadow:0 0 20px rgba(245,158,11,.25);}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 4px 24px rgba(245,158,11,.4);}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.login-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--danger);margin-bottom:16px;display:none;font-family:'DM Mono',monospace;}
+.login-error.show{display:block;}
+.login-hint{font-size:11px;color:var(--text3);text-align:center;margin-top:18px;font-family:'DM Mono',monospace;line-height:1.6;}
+
+/* KPI */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-bottom:22px;animation:fadeUp .4s ease both;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:17px 19px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s;}
+.kpi-card:hover{transform:translateY(-2px);border-color:var(--accent);}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kpi-color,var(--accent));}
+.kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-family:'DM Mono',monospace;margin-bottom:7px;}
+.kpi-value{font-family:'Syne',sans-serif;font-size:25px;font-weight:800;color:var(--text);line-height:1;margin-bottom:4px;}
+.kpi-sub{font-size:11px;color:var(--text3);}
+
+/* CONTROLS */
+.ctrl-row{display:flex;align-items:center;gap:9px;margin-bottom:16px;flex-wrap:wrap;animation:fadeUp .5s ease both;}
+.flabel{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+.fbtn{padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.fbtn:hover{border-color:var(--accent);color:var(--accent);}
+.fbtn.active{background:rgba(245,158,11,.12);border-color:var(--accent);color:var(--accent);font-weight:500;}
+.fsep{width:1px;height:20px;background:var(--border);}
+select.fsel{padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;outline:none;}
+select.fsel:focus{border-color:var(--accent);}
+.cbadge{margin-left:auto;font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}
+.view-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.vbtn{padding:6px 11px;border:none;background:none;color:var(--text3);cursor:pointer;font-size:12px;transition:all .15s;}
+.vbtn.active{background:var(--surface2);color:var(--accent);}
+
+/* TABLE */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeUp .6s ease both;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--surface2);border-bottom:1px solid var(--border);}
+thead th{padding:10px 13px;text-align:left;font-size:10px;font-family:'DM Mono',monospace;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;}
+thead th:hover{color:var(--accent);}
+thead th.sa::after{content:' ↑';color:var(--accent);}
+thead th.sd::after{content:' ↓';color:var(--accent);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .15s;cursor:pointer;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(245,158,11,.04);}
+tbody td{padding:10px 13px;color:var(--text2);vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.td-name{color:var(--text);font-weight:500;}
+.td-mono{font-family:'DM Mono',monospace;font-size:12px;}
+.td-price{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);}
+.act-btn{padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--text3);font-size:11px;cursor:pointer;transition:all .15s;margin-right:4px;}
+.act-btn:hover{border-color:var(--accent);color:var(--accent);}
+.act-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+
+/* PILLS */
+.sp{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;font-family:'DM Mono',monospace;white-space:nowrap;}
+.sp::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;}
+.sC{background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.25);}
+.sL{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25);}
+.sO{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25);}
+.sX{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);}
+.stp{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;white-space:nowrap;}
+.st-done{background:rgba(16,185,129,.1);color:#34d399;}
+.st-prop{background:rgba(59,130,246,.1);color:#93c5fd;}
+.st-lost{background:rgba(239,68,68,.1);color:#f87171;}
+.st-other{background:rgba(100,116,139,.1);color:#94a3b8;}
+
+/* PROGRESS */
+.pbw{width:65px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:5px;}
+.pbf{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;}
+
+/* PIPELINE */
+.pipeline-view{display:none;}.pipeline-view.active{display:block;}
+.tbl-view{display:block;}.tbl-view.hidden{display:none;}
+.pcols{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;animation:fadeUp .5s ease both;}
+.pcol{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.pch{padding:11px 13px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.pct{font-family:'Syne',sans-serif;font-weight:700;font-size:12px;}
+.pcc{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);background:var(--bg);padding:2px 7px;border-radius:20px;border:1px solid var(--border);}
+.pcb{padding:9px;display:flex;flex-direction:column;gap:7px;max-height:550px;overflow-y:auto;}
+.pcard{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;}
+.pcard:hover{border-color:var(--accent);transform:translateX(3px);}
+.pcn{font-weight:600;font-size:12px;color:var(--text);margin-bottom:2px;}
+.pcc2{font-size:11px;color:var(--text3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pcf{display:flex;align-items:center;justify-content:space-between;gap:5px;}
+.pcp{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);}
+.pcs{font-size:10px;color:var(--text3);padding:2px 6px;background:var(--surface);border-radius:4px;font-family:'DM Mono',monospace;}
+
+/* PAGINATION */
+.pgn{display:flex;align-items:center;gap:5px;padding:13px 16px;border-top:1px solid var(--border);justify-content:center;}
+.pgb{width:29px;height:29px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-size:12px;font-family:'DM Mono',monospace;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.pgb:hover{border-color:var(--accent);color:var(--accent);}
+.pgb.active{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
+.pgb:disabled{opacity:.3;cursor:default;}
+
+/* DETAIL PANEL */
+.det-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:200;display:none;opacity:0;}
+.det-ov.open{display:block;opacity:1;}
+.det-pan{position:fixed;right:0;top:0;bottom:0;width:450px;background:var(--surface);border-left:1px solid var(--border);z-index:201;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column;}
+.det-pan.open{transform:translateX(0);}
+.det-hdr{padding:20px 24px;border-bottom:1px solid var(--border);background:var(--surface2);position:sticky;top:0;z-index:1;}
+.det-close{position:absolute;top:16px;right:20px;background:none;border:1px solid var(--border);color:var(--text2);width:29px;height:29px;border-radius:7px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.det-close:hover{border-color:var(--danger);color:var(--danger);}
+.det-name{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.det-company{font-size:13px;color:var(--accent);margin-bottom:9px;}
+.det-badges{display:flex;gap:7px;flex-wrap:wrap;}
+.det-body{padding:20px 24px;flex:1;}
+.det-sec{margin-bottom:20px;}
+.det-sec-ttl{font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:9px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.dfl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;margin-bottom:3px;}
+.dfv{font-size:13px;color:var(--text);font-weight:500;}
+.dfv.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);}
+.det-notes{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px;font-size:13px;color:var(--text2);line-height:1.6;}
+.det-edt{width:100%;margin-top:14px;padding:9px;border-radius:8px;border:1px solid var(--accent);background:rgba(245,158,11,.08);color:var(--accent);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;}
+.det-edt:hover{background:rgba(245,158,11,.18);}
+.det-del{width:100%;margin-top:8px;padding:9px;border-radius:8px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);color:var(--danger);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;}
+.det-del:hover{background:rgba(239,68,68,.14);border-color:var(--danger);}
+
+/* ADD/EDIT MODAL */
+.mod-ov{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(7px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+.mod-ov.open{display:flex;}
+.mod-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:700px;max-width:100%;max-height:90vh;overflow-y:auto;animation:fadeUp .22s ease;position:relative;}
+.mod-hdr{padding:22px 26px 16px;border-bottom:1px solid var(--border);background:var(--surface2);position:sticky;top:0;z-index:1;border-radius:16px 16px 0 0;}
+.mod-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:var(--text);}
+.mod-sub{font-size:12px;color:var(--text3);margin-top:3px;}
+.mod-close{position:absolute;top:18px;right:22px;background:none;border:1px solid var(--border);color:var(--text2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.mod-close:hover{border-color:var(--danger);color:var(--danger);}
+.mod-body{padding:22px 26px;}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:6px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg.full{grid-column:1/-1;}
+.flbl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;}
+.flbl .req{color:var(--accent);margin-left:2px;}
+.finp,.fsel2,.ftxt{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.finp:focus,.fsel2:focus,.ftxt:focus{border-color:var(--accent);}
+.finp::placeholder,.ftxt::placeholder{color:var(--text3);}
+.ftxt{resize:vertical;min-height:75px;line-height:1.5;}
+.fsec-ttl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-family:'DM Mono',monospace;margin:18px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+.mod-footer{padding:14px 26px 22px;display:flex;gap:10px;justify-content:flex-end;}
+.btn-cancel{padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;}
+.btn-cancel:hover{border-color:var(--text2);color:var(--text);}
+.btn-save{padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#f97316);color:#0a0e14;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;box-shadow:0 0 14px rgba(245,158,11,.3);}
+.btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(245,158,11,.45);}
+.btn-save:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+/* TOAST */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 22px;font-size:13px;color:var(--text);z-index:9999;transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;box-shadow:0 8px 30px rgba(0,0,0,.4);font-family:'DM Mono',monospace;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.success{border-color:rgba(16,185,129,.4);color:var(--green);}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--danger);}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;animation:fadeUp .4s ease both;}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+.cc.full{grid-column:1/-1;}
+.cc-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.cc-sub{font-size:11px;color:var(--text3);margin-bottom:16px;}
+.ch-wrap{position:relative;height:230px;}
+.ch-wrap.tall{height:290px;}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--text3);}
+.empty p{font-size:13px;margin-top:8px;}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);}
+
+@media(max-width:900px){
+  header{padding:11px 14px;}main{padding:13px;}
+  .kpi-strip{grid-template-columns:repeat(2,1fr);}
+  .pcols{grid-template-columns:repeat(2,1fr);}
+  .det-pan{width:100vw;}
+  .charts-grid{grid-template-columns:1fr;}
+  .fgrid{grid-template-columns:1fr;}
+  .search-box{width:140px;}
+  #clockDisplay{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Connecting to Firebase...</p>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">&#9728;</div>
+      <div class="login-logo-text">
+        <h2>SEC Solar Energy</h2>
+        <span>CRM Dashboard</span>
+      </div>
+    </div>
+    <div class="login-title">Welcome back</div>
+    <div class="login-sub">Sign in to access the CRM</div>
+    <div class="login-error" id="loginError">Incorrect email or password. Please try again.</div>
+    <div class="login-field">
+      <label class="login-label">Email</label>
+      <input class="login-input" id="loginEmail" type="email" placeholder="you@secsolar.com" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label class="login-label">Password</label>
+      <input class="login-input" id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="login-hint">Authorised SEC Solar Energy staff only.<br>Contact admin if you need access.</div>
+  </div>
+</div>
+
+<div class="wrap" id="appWrap" style="display:none">
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <img src="images/solar-logo-png.png" alt="SEC Solar Energy" onerror="this.style.display='none'">
+    </div>
+    <div class="logo-text">
+      <h1>SEC Solar Energy</h1>
+      <span>CRM Dashboard</span>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="search-box">
+      <span style="color:var(--text3);font-size:14px">&#x2315;</span>
+      <input type="text" id="searchInput" placeholder="Search name, company...">
+    </div>
+    <div class="badge-live">LIVE</div>
+    <div class="badge-cloud" id="cloudBadge">Firebase</div>
+    <div id="clockDisplay"></div>
+    <button class="add-btn" id="addBtn" onclick="openAddModal()">+ Add Client</button>
+    <button onclick="doLogout()" style="padding:7px 13px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text3);font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">Sign Out</button>
+  </div>
+</header>
+
+<main>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('dashboard',this)">Dashboard</button>
+    <button class="nav-tab" onclick="switchPage('clients',this)">All Clients</button>
+    <button class="nav-tab" onclick="switchPage('charts',this)">Analytics</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="kpi-strip" id="kpiStrip"></div>
+    <div class="ctrl-row">
+      <span class="flabel">STAGE</span>
+      <button class="fbtn active" data-stage="all" onclick="setStage('all',this)">All</button>
+      <button class="fbtn" data-stage="Customer" onclick="setStage('Customer',this)">Customers</button>
+      <button class="fbtn" data-stage="Lead" onclick="setStage('Lead',this)">Leads</button>
+      <button class="fbtn" data-stage="Opportunity" onclick="setStage('Opportunity',this)">Opportunities</button>
+      <button class="fbtn" data-stage="Lost" onclick="setStage('Lost',this)">Lost</button>
+      <div class="fsep"></div>
+      <select class="fsel" id="srcFilter" onchange="applyFilters()">
+        <option value="">All Sources</option>
+        <option>Referral</option><option>EDC</option><option>EAC</option>
+        <option>Website</option><option>Facebook</option><option>Developer</option>
+        <option>Sub Con</option><option>Bidding</option><option>Channel Partner</option>
+      </select>
+      <select class="fsel" id="typeFilter" onchange="applyFilters()">
+        <option value="">All Systems</option>
+        <option>Grid tied</option><option>Hybrid</option><option>ESS</option>
+        <option>Off Grid</option><option>Maintenance</option>
+      </select>
+      <div class="fsep"></div>
+      <div class="view-toggle">
+        <button class="vbtn active" id="btnTable" onclick="setView('table')">Table</button>
+        <button class="vbtn" id="btnPipeline" onclick="setView('pipeline')">Pipeline</button>
+      </div>
+      <span class="cbadge" id="cnt1"></span>
+    </div>
+    <div class="tbl-view" id="tblView">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th onclick="srt('name')">Contact</th>
+            <th onclick="srt('company')">Company</th>
+            <th onclick="srt('lead_stage')">Stage</th>
+            <th onclick="srt('status')">Status</th>
+            <th onclick="srt('sale_price')">Value (USD)</th>
+            <th onclick="srt('pv_capacity')">PV kWp</th>
+            <th onclick="srt('system_type')">System</th>
+            <th onclick="srt('lead_source')">Source</th>
+            <th onclick="srt('pipeline_created')">Created</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="tbody1"></tbody>
+        </table>
+        <div class="pgn" id="pgn1"></div>
+      </div>
+    </div>
+    <div class="pipeline-view" id="pipeView">
+      <div class="pcols" id="pcols"></div>
+    </div>
+  </div>
+
+  <!-- ALL CLIENTS -->
+  <div class="page" id="page-clients">
+    <div class="ctrl-row">
+      <span class="flabel">STAGE</span>
+      <button class="fbtn active" data-stage="all" onclick="setStage('all',this)">All</button>
+      <button class="fbtn" data-stage="Customer" onclick="setStage('Customer',this)">Customers</button>
+      <button class="fbtn" data-stage="Lead" onclick="setStage('Lead',this)">Leads</button>
+      <button class="fbtn" data-stage="Opportunity" onclick="setStage('Opportunity',this)">Opportunities</button>
+      <button class="fbtn" data-stage="Lost" onclick="setStage('Lost',this)">Lost</button>
+      <span class="cbadge" id="cnt2"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="srt('name')">Contact</th>
+          <th onclick="srt('company')">Company</th>
+          <th onclick="srt('lead_stage')">Stage</th>
+          <th onclick="srt('status')">Status</th>
+          <th onclick="srt('sale_price')">Value (USD)</th>
+          <th onclick="srt('system_type')">System</th>
+          <th onclick="srt('lead_source')">Source</th>
+          <th onclick="srt('last_contact')">Last Contact</th>
+          <th>Actions</th>
+        </tr></thead>
+        <tbody id="tbody2"></tbody>
+      </table>
+      <div class="pgn" id="pgn2"></div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="page" id="page-charts">
+    <div class="charts-grid">
+      <div class="cc"><div class="cc-title">Pipeline by Stage</div><div class="cc-sub">Number of clients per stage</div><div class="ch-wrap"><canvas id="chStage"></canvas></div></div>
+      <div class="cc"><div class="cc-title">Revenue by Lead Source</div><div class="cc-sub">Total deal value by acquisition channel</div><div class="ch-wrap"><canvas id="chSource"></canvas></div></div>
+      <div class="cc"><div class="cc-title">Deals by System Type</div><div class="cc-sub">Distribution with percentage breakdown</div><div class="ch-wrap"><canvas id="chSystem"></canvas></div></div>
+      <div class="cc"><div class="cc-title">Win Rate</div><div class="cc-sub">Won vs Lost vs Active with percentages</div><div class="ch-wrap"><canvas id="chWin"></canvas></div></div>
+      <div class="cc full"><div class="cc-title">Top 10 Deals by Value</div><div class="cc-sub">Highest value deals — colour coded by stage</div><div class="ch-wrap tall"><canvas id="chTop"></canvas></div></div>
+    </div>
+  </div>
+</main>
+
+<!-- DETAIL PANEL -->
+<div class="det-ov" id="detOv" onclick="closeDet()"></div>
+<div class="det-pan" id="detPan">
+  <div class="det-hdr">
+    <button class="det-close" onclick="closeDet()">x</button>
+    <div class="det-name" id="dpName"></div>
+    <div class="det-company" id="dpCo"></div>
+    <div class="det-badges" id="dpBadges"></div>
+  </div>
+  <div class="det-body" id="detBody"></div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="mod-ov" id="modOv" onclick="handleModClick(event)">
+  <div class="mod-box">
+    <div class="mod-hdr">
+      <div class="mod-title" id="modTitle">Add New Client</div>
+      <div class="mod-sub">Fields marked <span style="color:var(--accent)">*</span> are required.</div>
+      <button class="mod-close" onclick="closeMod()">x</button>
+    </div>
+    <div class="mod-body">
+      <div class="fsec-ttl">Contact Information</div>
+      <div class="fgrid">
+        <div class="fg"><label class="flbl">Name <span class="req">*</span></label><input class="finp" id="f_name" placeholder="Mishael Zunco"></div>
+        <div class="fg"><label class="flbl">Company <span class="req">*</span></label><input class="finp" id="f_company" placeholder="SEC Solar Energy"></div>
+        <div class="fg"><label class="flbl">Position</label><input class="finp" id="f_position" placeholder="Technical Sales"></div>
+        <div class="fg"><label class="flbl">Phone</label><input class="finp" id="f_phone" placeholder="+855 87 850 812"></div>
+        <div class="fg full"><label class="flbl">Email</label><input class="finp" id="f_email" placeholder="email@company.com" type="email"></div>
+      </div>
+      <div class="fsec-ttl">Deal Details</div>
+      <div class="fgrid">
+        <div class="fg"><label class="flbl">Lead Stage <span class="req">*</span></label>
+          <select class="fsel2" id="f_lead_stage">
+            <option value="Lead">Lead</option><option value="Opportunity">Opportunity</option>
+            <option value="Customer">Customer</option><option value="Lost">Lost</option>
+          </select></div>
+        <div class="fg"><label class="flbl">Sales Status</label>
+          <select class="fsel2" id="f_sales_status">
+            <option>Open Deal</option><option>Closed Deal</option><option>Attempted to Contact</option>
+            <option>Connected</option><option>Unqualified</option><option>Bad Timing</option><option>In Progress</option>
+          </select></div>
+        <div class="fg"><label class="flbl">Lead Source</label>
+          <select class="fsel2" id="f_lead_source">
+            <option>Referral</option><option>EDC</option><option>EAC</option><option>Website</option>
+            <option>Facebook</option><option>Developer</option><option>Sub Con</option><option>Bidding</option>
+          </select></div>
+        <div class="fg"><label class="flbl">Project Status</label>
+          <select class="fsel2" id="f_status">
+            <option>Proposal Submitted</option><option>Project Completed</option>
+            <option>Contacted Recently</option><option>Lost</option><option>On Hold</option><option>In Progress</option>
+          </select></div>
+        <div class="fg"><label class="flbl">Sale Price (USD)</label><input class="finp" id="f_sale_price" placeholder="200,000.00" type="text" oninput="fmtInput(this)"></div>
+        <div class="fg"><label class="flbl">Pipeline Created</label><input class="finp" id="f_pipeline_created" type="date"></div>
+        <div class="fg"><label class="flbl">Last Contact</label><input class="finp" id="f_last_contact" type="date"></div>
+        <div class="fg"><label class="flbl">Date Closed</label><input class="finp" id="f_date_closed" type="date"></div>
+      </div>
+      <div class="fsec-ttl">System Specifications</div>
+      <div class="fgrid">
+        <div class="fg"><label class="flbl">System Type</label>
+          <select class="fsel2" id="f_system_type">
+            <option>Grid tied</option><option>Hybrid</option><option>ESS</option><option>Off Grid</option><option>Maintenance</option>
+          </select></div>
+        <div class="fg"><label class="flbl">PV Capacity (kWp)</label><input class="finp" id="f_pv" placeholder="500.00" type="text" oninput="fmtInput(this)"></div>
+        <div class="fg"><label class="flbl">Inverter Capacity (kW)</label><input class="finp" id="f_inv" placeholder="400.00" type="text" oninput="fmtInput(this)"></div>
+        <div class="fg"><label class="flbl">Battery (kWh) — blank = N/A</label><input class="finp" id="f_bat" placeholder="Leave blank if none" type="text" oninput="fmtInput(this)"></div>
+      </div>
+      <div class="fsec-ttl">Notes</div>
+      <div class="fgrid">
+        <div class="fg full"><label class="flbl">Action / Reminder</label><input class="finp" id="f_notes" placeholder="e.g. Follow up next week"></div>
+        <div class="fg full"><label class="flbl">Latest Notes / Update</label><textarea class="ftxt" id="f_last_notes" placeholder="e.g. Client waiting for board approval..."></textarea></div>
+      </div>
+    </div>
+    <div class="mod-footer">
+      <button class="btn-cancel" onclick="closeMod()">Cancel</button>
+      <button class="btn-save" id="btnSave" onclick="saveClient()">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+</div><!-- end #appWrap -->
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let DATA = [];          // in-memory mirror of Firestore
+let curStage = 'all', curPage1 = 1, curPage2 = 1;
+let sKey = 'pipeline_created', sDir = -1;
+let filtered = [], curView = 'table', editId = null, charts_ = {};
+const PS = 20;
+
+// ============================================================
+// HELPERS
+// ============================================================
+const f$ = v => v ? '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+const fN = v => v != null && v !== '' ? Number(v).toLocaleString('en-US', {maximumFractionDigits:1}) : '—';
+const fD = s => { if (!s) return '—'; try { return new Date(s).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}); } catch { return s; } };
+const scls = s => ({Customer:'sC',Lead:'sL',Opportunity:'sO',Lost:'sX'}[s] || 'sL');
+const stcls = s => { if (!s) return 'st-other'; if (s.includes('Completed')) return 'st-done'; if (s.includes('Proposal')||s.includes('Contacted')||s.includes('Progress')) return 'st-prop'; if (s.includes('Lost')) return 'st-lost'; return 'st-other'; };
+
+function fmtInput(el) {
+  let v = el.value.replace(/[^0-9.]/g, '');
+  const parts = v.split('.');
+  if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+  const intPart = (parts[0] || '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  el.value = parts.length === 2 ? intPart + '.' + parts[1] : intPart;
+}
+
+function parseNum(str) {
+  return parseFloat((str || '').replace(/,/g, '')) || null;
+}
+
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3200);
+}
+
+function setCloudBadge(state, text) {
+  const el = document.getElementById('cloudBadge');
+  el.className = 'badge-cloud' + (state === 'ok' ? '' : ' ' + state);
+  el.textContent = text;
+}
+
+// ============================================================
+// CAMBODIA REAL-TIME CLOCK
+// ============================================================
+function updateClock() {
+  const kh = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Phnom_Penh'}));
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = kh.getHours(), m = kh.getMinutes(), s = kh.getSeconds();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  const pad = n => String(n).padStart(2, '0');
+  const el = document.getElementById('clockDisplay');
+  if (el) el.textContent = `${days[kh.getDay()]}, ${kh.getDate()} ${months[kh.getMonth()]} ${kh.getFullYear()}  |  ${pad(h)}:${pad(m)}:${pad(s)} ${ampm}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// KPIs
+// ============================================================
+function renderKPIs() {
+  const cu = DATA.filter(r => r.lead_stage === 'Customer');
+  const le = DATA.filter(r => r.lead_stage === 'Lead');
+  const op = DATA.filter(r => r.lead_stage === 'Opportunity');
+  const lo = DATA.filter(r => r.lead_stage === 'Lost');
+  const rev = cu.reduce((s, r) => s + (r.sale_price || 0), 0);
+  const pip = [...le, ...op].reduce((s, r) => s + (r.sale_price || 0), 0);
+  const wr = cu.length + lo.length > 0 ? Math.round(cu.length / (cu.length + lo.length) * 100) : 0;
+  const ks = [
+    {l:'Total Revenue', v:'$' + Number(rev).toLocaleString('en-US',{maximumFractionDigits:0}), s:cu.length+' closed customers', c:'#10b981'},
+    {l:'Pipeline Value', v:'$' + Number(pip).toLocaleString('en-US',{maximumFractionDigits:0}), s:(le.length+op.length)+' active deals', c:'#f59e0b'},
+    {l:'Customers', v:cu.length, s:'Closed & completed', c:'#10b981'},
+    {l:'Open Leads', v:le.length, s:'In pipeline', c:'#3b82f6'},
+    {l:'Win Rate', v:wr+'%', s:lo.length+' lost deals', c:'#8b5cf6'},
+  ];
+  document.getElementById('kpiStrip').innerHTML = ks.map((k,i) => `
+    <div class="kpi-card" style="--kpi-color:${k.c};animation-delay:${i*.07}s">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-value">${k.v}</div>
+      <div class="kpi-sub">${k.s}</div>
+    </div>`).join('');
+}
+
+// ============================================================
+// FILTERS & SORT
+// ============================================================
+function setStage(s, btn) {
+  curStage = s; curPage1 = 1; curPage2 = 1;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll(`.fbtn[data-stage="${s}"]`).forEach(b => b.classList.add('active'));
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const src = (document.getElementById('srcFilter') || {}).value || '';
+  const typ = (document.getElementById('typeFilter') || {}).value || '';
+  filtered = DATA.filter(r => {
+    if (curStage !== 'all' && r.lead_stage !== curStage) return false;
+    if (src && r.lead_source !== src) return false;
+    if (typ && r.system_type !== typ) return false;
+    if (q) { const h = [r.name, r.company, r.email, r.lead_source, r.status].join(' ').toLowerCase(); if (!h.includes(q)) return false; }
+    return true;
+  });
+  filtered.sort((a, b) => {
+    let av = a[sKey], bv = b[sKey];
+    if (av == null) av = ''; if (bv == null) bv = '';
+    if (typeof av === 'number' && typeof bv === 'number') return sDir * (av - bv);
+    return sDir * String(av).localeCompare(String(bv));
+  });
+  ['cnt1','cnt2'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = filtered.length + ' records'; });
+  renderT1(); renderT2();
+  if (curView === 'pipeline') renderPipe();
+}
+
+function srt(k) {
+  if (sKey === k) sDir *= -1; else { sKey = k; sDir = -1; }
+  document.querySelectorAll('thead th').forEach(th => {
+    th.classList.remove('sa','sd');
+    if ((th.getAttribute('onclick') || '').includes(`'${k}'`)) th.classList.add(sDir === 1 ? 'sa' : 'sd');
+  });
+  applyFilters();
+}
+
+// ============================================================
+// TABLE RENDER
+// ============================================================
+function row(r, cols) {
+  const id = r._id;
+  const pct = typeof r.progress === 'number' ? Math.round(r.progress * 100) : 0;
+  const m = {
+    name: `<td class="td-name">${r.name || '—'}</td>`,
+    company: `<td title="${r.company || ''}" style="max-width:190px">${(r.company || '—').substring(0,30)}${(r.company||'').length>30?'…':''}</td>`,
+    stage: `<td><span class="sp ${scls(r.lead_stage)}">${r.lead_stage || '—'}</span></td>`,
+    status: `<td><span class="stp ${stcls(r.status)}">${(r.status || '—').substring(0,18)}</span></td>`,
+    price: `<td class="td-price">${f$(r.sale_price)}</td>`,
+    pv: `<td class="td-mono">${fN(r.pv_capacity)}</td>`,
+    sys: `<td class="td-mono" style="font-size:11px">${r.system_type || '—'}</td>`,
+    src: `<td style="font-size:12px;color:var(--text3)">${r.lead_source || '—'}</td>`,
+    created: `<td class="td-mono" style="font-size:11px">${fD(r.pipeline_created)}</td>`,
+    lc: `<td class="td-mono" style="font-size:11px">${fD(r.last_contact)}</td>`,
+    acts: `<td><button class="act-btn" onclick="event.stopPropagation();openEdit('${id}')">Edit</button><button class="act-btn del" onclick="event.stopPropagation();del('${id}')">Del</button></td>`
+  };
+  return `<tr onclick="openDet('${id}')">${cols.map(c => m[c]).join('')}</tr>`;
+}
+
+function renderT1() {
+  const b = document.getElementById('tbody1'); if (!b) return;
+  const pg = filtered.slice((curPage1-1)*PS, curPage1*PS);
+  if (!filtered.length) { b.innerHTML = `<tr><td colspan="10"><div class="empty"><p>No records match your filters</p></div></td></tr>`; document.getElementById('pgn1').innerHTML = ''; return; }
+  b.innerHTML = pg.map(r => row(r, ['name','company','stage','status','price','pv','sys','src','created','acts'])).join('');
+  renderPgn('pgn1', curPage1, filtered.length, p => { curPage1 = p; renderT1(); });
+}
+
+function renderT2() {
+  const b = document.getElementById('tbody2'); if (!b) return;
+  const pg = filtered.slice((curPage2-1)*PS, curPage2*PS);
+  if (!filtered.length) { b.innerHTML = `<tr><td colspan="9"><div class="empty"><p>No records</p></div></td></tr>`; document.getElementById('pgn2').innerHTML = ''; return; }
+  b.innerHTML = pg.map(r => row(r, ['name','company','stage','status','price','sys','src','lc','acts'])).join('');
+  renderPgn('pgn2', curPage2, filtered.length, p => { curPage2 = p; renderT2(); });
+}
+
+function renderPgn(id, page, total, cb) {
+  const tp = Math.ceil(total / PS); const el = document.getElementById(id); if (!el) return;
+  if (tp <= 1) { el.innerHTML = ''; return; }
+  let h = `<button class="pgb" onclick="(${cb.toString()})(${page-1})" ${page===1?'disabled':''}>&#8249;</button>`;
+  for (let p = 1; p <= tp; p++) {
+    if (p===1||p===tp||Math.abs(p-page)<=2) h += `<button class="pgb ${p===page?'active':''}" onclick="(${cb.toString()})(${p})">${p}</button>`;
+    else if (Math.abs(p-page)===3) h += `<span style="color:var(--text3);padding:0 3px">...</span>`;
+  }
+  h += `<button class="pgb" onclick="(${cb.toString()})(${page+1})" ${page===tp?'disabled':''}>&#8250;</button>`;
+  el.innerHTML = h;
+}
+
+// ============================================================
+// PIPELINE
+// ============================================================
+function renderPipe() {
+  const cols = [{k:'Lead',t:'Leads',c:'#3b82f6'},{k:'Opportunity',t:'Opportunities',c:'#8b5cf6'},{k:'Customer',t:'Customers',c:'#10b981'},{k:'Lost',t:'Lost',c:'#ef4444'}];
+  document.getElementById('pcols').innerHTML = cols.map(s => {
+    const items = filtered.filter(r => r.lead_stage === s.k);
+    const val = items.reduce((a, r) => a + (r.sale_price || 0), 0);
+    return `<div class="pcol">
+      <div class="pch" style="border-top:2px solid ${s.c}">
+        <span class="pct" style="color:${s.c}">${s.t}</span>
+        <span class="pcc">${items.length} · ${f$(val)}</span>
+      </div>
+      <div class="pcb">${items.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Empty</div>' :
+        items.map(r => `<div class="pcard" onclick="openDet('${r._id}')">
+          <div class="pcn">${r.name || '—'}</div>
+          <div class="pcc2">${r.company || '—'}</div>
+          <div class="pcf"><span class="pcp">${f$(r.sale_price)}</span><span class="pcs">${r.lead_source || '—'}</span></div>
+        </div>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// DETAIL PANEL
+// ============================================================
+function openDet(id) {
+  const r = DATA.find(x => x._id === id); if (!r) return;
+  document.getElementById('dpName').textContent = r.name || '—';
+  document.getElementById('dpCo').textContent = r.company || '';
+  document.getElementById('dpBadges').innerHTML = `<span class="sp ${scls(r.lead_stage)}">${r.lead_stage||'—'}</span><span class="stp ${stcls(r.status)}">${r.status||'—'}</span>${r.system_type?`<span class="stp st-other">${r.system_type}</span>`:''}`;
+  const pct = typeof r.progress === 'number' ? Math.round(r.progress * 100) : 0;
+  document.getElementById('detBody').innerHTML = `
+    <div class="det-sec"><div class="det-sec-ttl">Contact</div><div class="det-grid">
+      ${r.position?`<div><div class="dfl">Position</div><div class="dfv">${r.position}</div></div>`:''}
+      ${r.phone?`<div><div class="dfl">Phone</div><div class="dfv">${r.phone}</div></div>`:''}
+      ${r.email?`<div style="grid-column:1/-1"><div class="dfl">Email</div><div class="dfv"><a href="mailto:${r.email}" style="color:var(--accent3);text-decoration:none">${r.email}</a></div></div>`:''}
+    </div></div>
+    <div class="det-sec"><div class="det-sec-ttl">Deal</div><div class="det-grid">
+      <div><div class="dfl">Sale Price</div><div class="dfv mono">${f$(r.sale_price)}</div></div>
+      <div><div class="dfl">Sales Status</div><div class="dfv">${r.sales_status||'—'}</div></div>
+      <div><div class="dfl">Lead Source</div><div class="dfv">${r.lead_source||'—'}</div></div>
+      <div><div class="dfl">Created</div><div class="dfv">${fD(r.pipeline_created)}</div></div>
+      <div><div class="dfl">Last Contact</div><div class="dfv">${fD(r.last_contact)}</div></div>
+      <div><div class="dfl">Date Closed</div><div class="dfv">${fD(r.date_closed)}</div></div>
+      <div><div class="dfl">Progress</div><div class="dfv"><div class="pbw"><div class="pbf" style="width:${pct}%"></div></div>${pct}%</div></div>
+    </div></div>
+    <div class="det-sec"><div class="det-sec-ttl">System</div><div class="det-grid">
+      <div><div class="dfl">Type</div><div class="dfv">${r.system_type||'—'}</div></div>
+      <div><div class="dfl">PV Capacity</div><div class="dfv mono">${fN(r.pv_capacity)} kWp</div></div>
+      <div><div class="dfl">Inverter</div><div class="dfv mono">${fN(r.inverter_capacity)} kW</div></div>
+      <div><div class="dfl">Battery</div><div class="dfv mono">${r.battery_capacity&&r.battery_capacity!=='N/A'?fN(r.battery_capacity)+' kWh':'N/A'}</div></div>
+    </div></div>
+    ${(r.last_notes||r.notes)?`<div class="det-sec"><div class="det-sec-ttl">Notes</div>
+      ${r.notes?`<div class="det-notes" style="margin-bottom:8px;border-color:rgba(245,158,11,.3)"><span style="color:var(--accent);font-size:10px;font-family:'DM Mono',monospace;text-transform:uppercase">Action: </span>${r.notes}</div>`:''}
+      ${r.last_notes?`<div class="det-notes">${r.last_notes}</div>`:''}
+    </div>`:''}
+    <button class="det-edt" onclick="openEdit('${id}');closeDet()">Edit Client</button>
+    <button class="det-del" onclick="del('${id}');closeDet()">Delete Client</button>`;
+  document.getElementById('detOv').classList.add('open');
+  document.getElementById('detPan').classList.add('open');
+}
+function closeDet() { document.getElementById('detOv').classList.remove('open'); document.getElementById('detPan').classList.remove('open'); }
+
+// ============================================================
+// ADD / EDIT MODAL
+// ============================================================
+function openAddModal() {
+  editId = null;
+  document.getElementById('modTitle').textContent = 'Add New Client';
+  clearForm();
+  document.getElementById('f_name').value = 'Mishael Zunco';
+  document.getElementById('f_company').value = 'SEC Solar Energy';
+  document.getElementById('f_position').value = 'Technical Sales';
+  document.getElementById('f_phone').value = '+855 87 850 812';
+  document.getElementById('f_pipeline_created').value = new Date().toISOString().split('T')[0];
+  document.getElementById('modOv').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function openEdit(id) {
+  editId = id;
+  const r = DATA.find(x => x._id === id); if (!r) return;
+  document.getElementById('modTitle').textContent = 'Edit — ' + r.name;
+  document.getElementById('f_name').value = r.name || '';
+  document.getElementById('f_company').value = r.company || '';
+  document.getElementById('f_position').value = r.position || '';
+  document.getElementById('f_phone').value = r.phone || '';
+  document.getElementById('f_email').value = r.email || '';
+  document.getElementById('f_lead_stage').value = r.lead_stage || 'Lead';
+  document.getElementById('f_sales_status').value = r.sales_status || 'Open Deal';
+  document.getElementById('f_lead_source').value = r.lead_source || 'Referral';
+  document.getElementById('f_status').value = r.status || 'Proposal Submitted';
+  document.getElementById('f_sale_price').value = r.sale_price ? Number(r.sale_price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  document.getElementById('f_pipeline_created').value = r.pipeline_created || '';
+  document.getElementById('f_last_contact').value = r.last_contact || '';
+  document.getElementById('f_date_closed').value = r.date_closed || '';
+  document.getElementById('f_system_type').value = r.system_type || 'Grid tied';
+  document.getElementById('f_pv').value = r.pv_capacity ? Number(r.pv_capacity).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  document.getElementById('f_inv').value = r.inverter_capacity ? Number(r.inverter_capacity).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  document.getElementById('f_bat').value = (r.battery_capacity && r.battery_capacity !== 'N/A') ? Number(r.battery_capacity).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '';
+  document.getElementById('f_notes').value = r.notes || '';
+  document.getElementById('f_last_notes').value = r.last_notes || '';
+  document.getElementById('modOv').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMod() { document.getElementById('modOv').classList.remove('open'); document.body.style.overflow = ''; editId = null; }
+function handleModClick(e) { if (e.target === document.getElementById('modOv')) closeMod(); }
+
+function clearForm() {
+  ['f_name','f_company','f_position','f_phone','f_email','f_sale_price','f_pipeline_created','f_last_contact','f_date_closed','f_pv','f_inv','f_bat','f_notes','f_last_notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_lead_stage').value = 'Lead';
+  document.getElementById('f_sales_status').value = 'Open Deal';
+  document.getElementById('f_lead_source').value = 'Referral';
+  document.getElementById('f_status').value = 'Proposal Submitted';
+  document.getElementById('f_system_type').value = 'Grid tied';
+}
+
+async function saveClient() {
+  const name = document.getElementById('f_name').value.trim();
+  const company = document.getElementById('f_company').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  if (!company) { toast('Company is required', 'error'); return; }
+
+  const rec = {
+    name, company,
+    position: document.getElementById('f_position').value.trim() || null,
+    phone: document.getElementById('f_phone').value.trim() || null,
+    email: document.getElementById('f_email').value.trim() || null,
+    pipeline_created: document.getElementById('f_pipeline_created').value || null,
+    system_type: document.getElementById('f_system_type').value,
+    pv_capacity: parseNum(document.getElementById('f_pv').value),
+    inverter_capacity: parseNum(document.getElementById('f_inv').value),
+    battery_capacity: document.getElementById('f_bat').value ? parseNum(document.getElementById('f_bat').value) : 'N/A',
+    sale_price: parseNum(document.getElementById('f_sale_price').value),
+    margin_pct: 0.15,
+    sales_status: document.getElementById('f_sales_status').value,
+    lead_stage: document.getElementById('f_lead_stage').value,
+    lead_source: document.getElementById('f_lead_source').value,
+    status: document.getElementById('f_status').value,
+    progress: document.getElementById('f_lead_stage').value === 'Customer' ? 1.0 : null,
+    last_contact: document.getElementById('f_last_contact').value || null,
+    date_closed: document.getElementById('f_date_closed').value || null,
+    permit_status: null,
+    notes: document.getElementById('f_notes').value.trim() || null,
+    last_notes: document.getElementById('f_last_notes').value.trim() || null,
+  };
+
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  try {
+    if (editId) {
+      await window._fb.update(editId, rec);
+      toast(name + ' updated successfully');
+    } else {
+      await window._fb.add(rec);
+      toast(name + ' added to CRM');
+    }
+    closeMod();
+  } catch(e) {
+    toast('Error saving: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Client';
+  }
+}
+
+// ============================================================
+// DELETE
+// ============================================================
+async function del(id) {
+  const r = DATA.find(x => x._id === id);
+  const n = r ? r.name : 'this client';
+  if (!confirm(`Delete "${n}"? This cannot be undone.`)) return;
+  try {
+    await window._fb.remove(id);
+    toast(n + ' deleted');
+  } catch(e) {
+    toast('Error deleting: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// VIEW TOGGLE
+// ============================================================
+function setView(v) {
+  curView = v;
+  document.getElementById('tblView').classList.toggle('hidden', v !== 'table');
+  document.getElementById('pipeView').classList.toggle('active', v !== 'table');
+  document.getElementById('btnTable').classList.toggle('active', v === 'table');
+  document.getElementById('btnPipeline').classList.toggle('active', v === 'pipeline');
+  if (v === 'pipeline') renderPipe(); else renderT1();
+}
+
+// ============================================================
+// PAGE NAV
+// ============================================================
+function switchPage(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  btn.classList.add('active');
+  if (page === 'charts') renderCharts();
+  if (page === 'clients') renderT2();
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+const CD = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {legend: {labels: {color:'#94a3b8', font:{family:"'DM Mono',monospace", size:11}}}},
+  scales: {x:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'rgba(30,45,61,.6)'}}, y:{ticks:{color:'#64748b',font:{size:11}},grid:{color:'rgba(30,45,61,.6)'}}}
+};
+function dch(id) { if (charts_[id]) { charts_[id].destroy(); delete charts_[id]; } }
+
+function renderCharts() {
+  dch('stage');
+  const sc = {Lead:0, Opportunity:0, Customer:0, Lost:0};
+  DATA.forEach(r => { if (sc[r.lead_stage] !== undefined) sc[r.lead_stage]++; });
+  charts_['stage'] = new Chart(document.getElementById('chStage'), {type:'bar', data:{labels:Object.keys(sc), datasets:[{label:'Clients', data:Object.values(sc), backgroundColor:['rgba(96,165,250,.75)','rgba(167,139,250,.75)','rgba(52,211,153,.75)','rgba(248,113,113,.75)'], borderRadius:7, borderSkipped:false}]}, options:{...CD, plugins:{...CD.plugins, legend:{display:false}}}});
+
+  dch('src');
+  const sr = {}; DATA.forEach(r => { if (r.lead_source && r.sale_price) sr[r.lead_source] = (sr[r.lead_source]||0) + r.sale_price; });
+  const ss = Object.entries(sr).sort((a,b) => b[1]-a[1]);
+  charts_['src'] = new Chart(document.getElementById('chSource'), {type:'bar', data:{labels:ss.map(e=>e[0]), datasets:[{label:'Revenue', data:ss.map(e=>Math.round(e[1])), backgroundColor:'rgba(245,158,11,.65)', borderRadius:7, borderSkipped:false}]}, options:{...CD, plugins:{...CD.plugins, legend:{display:false}}, scales:{...CD.scales, y:{...CD.scales.y, ticks:{...CD.scales.y.ticks, callback:v=>'$'+(v/1000).toFixed(0)+'K'}}}}});
+
+  dch('sys');
+  const syc = {}; DATA.forEach(r => { if (r.system_type) syc[r.system_type] = (syc[r.system_type]||0)+1; });
+  const sycTotal = Object.values(syc).reduce((a,b) => a+b, 0);
+  charts_['sys'] = new Chart(document.getElementById('chSystem'), {type:'doughnut', data:{labels:Object.keys(syc), datasets:[{data:Object.values(syc), backgroundColor:['rgba(245,158,11,.8)','rgba(139,92,246,.8)','rgba(16,185,129,.8)','rgba(59,130,246,.8)','rgba(249,115,22,.8)'], borderColor:'#111720', borderWidth:2}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{family:"'DM Mono',monospace",size:11}}}, tooltip:{callbacks:{label:ctx=>{const pct=Math.round(ctx.parsed/sycTotal*100);return ctx.label+': '+ctx.parsed+' ('+pct+'%)';}}}}}});
+
+  dch('wr');
+  const won = DATA.filter(r => r.lead_stage === 'Customer').length;
+  const lst = DATA.filter(r => r.lead_stage === 'Lost').length;
+  const act = DATA.filter(r => r.lead_stage === 'Lead' || r.lead_stage === 'Opportunity').length;
+  const wrTotal = won + lst + act;
+  charts_['wr'] = new Chart(document.getElementById('chWin'), {type:'doughnut', data:{labels:['Won (Customer)','Lost','Active'], datasets:[{data:[won,lst,act], backgroundColor:['rgba(16,185,129,.8)','rgba(239,68,68,.8)','rgba(59,130,246,.5)'], borderColor:'#111720', borderWidth:2}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{family:"'DM Mono',monospace",size:11}}}, tooltip:{callbacks:{label:ctx=>{const pct=wrTotal>0?Math.round(ctx.parsed/wrTotal*100):0;return ctx.label+': '+ctx.parsed+' ('+pct+'%)';}}}}}});
+
+  dch('top');
+  const top = DATA.filter(r => r.sale_price).sort((a,b) => (b.sale_price||0)-(a.sale_price||0)).slice(0,10);
+  const scmap = {Customer:'rgba(52,211,153,.8)',Lead:'rgba(96,165,250,.8)',Opportunity:'rgba(167,139,250,.8)',Lost:'rgba(248,113,113,.8)'};
+  charts_['top'] = new Chart(document.getElementById('chTop'), {type:'bar', data:{labels:top.map(r=>(r.name||'?').substring(0,15)), datasets:[{label:'Value (USD)', data:top.map(r=>Math.round(r.sale_price||0)), backgroundColor:top.map(r=>scmap[r.lead_stage]||'rgba(245,158,11,.7)'), borderRadius:7, borderSkipped:false}]}, options:{...CD, plugins:{...CD.plugins, legend:{display:false}, tooltip:{callbacks:{label:ctx=>{const r=top[ctx.dataIndex];return['$'+Number(r.sale_price).toLocaleString('en-US',{maximumFractionDigits:0}),r.company||''];}}}}, scales:{...CD.scales, y:{...CD.scales.y, ticks:{...CD.scales.y.ticks, callback:v=>'$'+(v>=1000000?(v/1000000).toFixed(1)+'M':(v/1000).toFixed(0)+'K')}}}}});
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+let st;
+document.getElementById('searchInput').addEventListener('input', () => { clearTimeout(st); st = setTimeout(applyFilters, 200); });
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDet(); if (document.getElementById('modOv').classList.contains('open')) closeMod(); }
+});
+
+// ============================================================
+// LOGIN / LOGOUT
+// ============================================================
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  const btn   = document.getElementById('loginBtn');
+  const err   = document.getElementById('loginError');
+  if (!email || !pass) { showLoginError('Please enter your email and password.'); return; }
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  err.classList.remove('show');
+  try {
+    await window._fb.login(email, pass);
+  } catch(e) {
+    showLoginError('Incorrect email or password. Please try again.');
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+function showLoginError(msg) {
+  const err = document.getElementById('loginError');
+  err.textContent = msg;
+  err.classList.add('show');
+}
+
+async function doLogout() {
+  if (!confirm('Sign out of the CRM?')) return;
+  await window._fb.logout();
+}
+
+let unsubscribe = null;
+
+function showLogin() {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('loginScreen').classList.add('show');
+  document.getElementById('appWrap').style.display = 'none';
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+}
+
+function showApp() {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('loginScreen').classList.remove('show');
+  document.getElementById('appWrap').style.display = 'block';
+  setCloudBadge('loading', 'Loading data...');
+
+  // Start real-time listener
+  unsubscribe = window._fb.listen(docs => {
+    DATA = docs;
+    renderKPIs();
+    applyFilters();
+    if (document.getElementById('page-charts').classList.contains('active')) renderCharts();
+    setCloudBadge('ok', 'Firebase - Synced');
+  });
+}
+
+// ============================================================
+// FIREBASE INIT — Auth state drives everything
+// ============================================================
+window.addEventListener('fb-ready', () => {
+  // Watch auth state — fires on page load and on login/logout
+  window._fb.onAuthChange(user => {
+    if (user) {
+      showApp();
+    } else {
+      showLogin();
+    }
+  });
+});
+</script>
+</body>
+</html>
