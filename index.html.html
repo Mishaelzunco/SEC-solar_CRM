@@ -677,20 +677,26 @@ function renderKPIs() {
       <div class="kpi-value">${k.v}</div>
       <div class="kpi-sub">${k.s}</div>
     </div>`).join('');
+}
 
-  // Capacity KPIs — exclude Maintenance
-  const proj = DATA.filter(r => r.system_type !== 'Maintenance');
+// ============================================================
+// CAPACITY STRIP — driven by filtered data, always excl. Maintenance
+// ============================================================
+function renderCapStrip(source) {
+  const cs = document.getElementById('capStrip');
+  if (!cs) return;
+  const proj = source.filter(r => r.system_type !== 'Maintenance');
   const totalDC  = proj.reduce((a,r) => a+(r.pv_capacity||0), 0);
   const totalAC  = proj.reduce((a,r) => a+(r.inverter_capacity||0), 0);
   const totalBat = proj.filter(r => r.battery_capacity && r.battery_capacity !== 'N/A')
                        .reduce((a,r) => a+(parseFloat(r.battery_capacity)||0), 0);
+  const stageLabel = curStage === 'all' ? 'All stages' : curStage;
   const caps = [
-    {l:'Total DC Capacity', v:Number(totalDC).toLocaleString('en-US',{maximumFractionDigits:1})+' kWp', s:'Excl. Maintenance', c:'#f59e0b'},
-    {l:'Total AC Capacity', v:Number(totalAC).toLocaleString('en-US',{maximumFractionDigits:1})+' kW',  s:'Excl. Maintenance', c:'#3b82f6'},
-    {l:'Total Battery',     v:totalBat>0?Number(totalBat).toLocaleString('en-US',{maximumFractionDigits:1})+' kWh':'— kWh', s:'Excl. Maintenance', c:'#10b981'},
+    {l:'Total DC Capacity', v:Number(totalDC).toLocaleString('en-US',{maximumFractionDigits:1})+' kWp', s:stageLabel+' — excl. Maintenance', c:'#f59e0b'},
+    {l:'Total AC Capacity', v:Number(totalAC).toLocaleString('en-US',{maximumFractionDigits:1})+' kW',  s:stageLabel+' — excl. Maintenance', c:'#3b82f6'},
+    {l:'Total Battery',     v:totalBat>0?Number(totalBat).toLocaleString('en-US',{maximumFractionDigits:1})+' kWh':'— kWh', s:stageLabel+' — excl. Maintenance', c:'#10b981'},
   ];
-  const cs = document.getElementById('capStrip');
-  if (cs) cs.innerHTML = caps.map((k,i) => `
+  cs.innerHTML = caps.map((k,i) => `
     <div class="kpi-card" style="--kpi-color:${k.c};animation-delay:${(i+5)*.07}s">
       <div class="kpi-label">${k.l}</div>
       <div class="kpi-value" style="font-size:18px">${k.v}</div>
@@ -728,6 +734,7 @@ function applyFilters() {
   ['cnt1','cnt2'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = filtered.length + ' records'; });
   renderT1(); renderT2();
   if (curView === 'pipeline') renderPipe();
+  renderCapStrip(filtered);
 }
 
 function srt(k) {
